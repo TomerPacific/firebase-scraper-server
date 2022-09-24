@@ -4,11 +4,11 @@ var cors = require('cors');
 const rp = require('request-promise');
 const cheerio = require('cheerio');
 
-
 const daysPassedToScrapeAgain = 1;
 var port = process.env.PORT || 3000;
 var app = express();
 var lastDateScraped;
+var services = [];
 
 const url = "https://status.firebase.google.com";
 
@@ -29,27 +29,25 @@ app.use(cors({
 
 app.get('/firebase', function (req, res) {
  
-  if (enoughDaysHavePassed()) {
+ if (enoughDaysHavePassed()) {
       rp(url)
     .then(function(html){
-        let services = [];
 
         const $ = cheerio.load(html);
 
         let startAndEndDates = getStartAndEndDates($);
 
-        populateServicesWithStatus($, services);
-        console.log(services);
+        populateServicesWithStatus($);
 
         lastDateScraped = new Date();
-        res.status(200).json({ message: services});
+        return res.status(200).json({ message: services });
     })
     .catch(function(err){
-      res.status(404).json({ message: err});
+      return res.status(404).json({message: err});
     });
-  } else {
-    res.status(200).json({ message: products});
-  }
+ } else {
+   res.status(200).json({ message: services});
+ }
 });
 
 function getStartAndEndDates($) {
@@ -65,12 +63,35 @@ function getStartAndEndDates($) {
 
 }
 
-function populateServicesWithStatus($, services) {
-  let serviceNames = $('.product-name');
-  let amountOfServices = serviceNames.length;
-  for(let i = 0; i < amountOfServices; i++) {
-    let serviceName = serviceNames[i].children[0].data;
-    services[serviceName.trim()] = '';
+function populateServicesWithStatus($) {
+  let products = $('.product-row');
+  for (var product of products) {
+    let productName;
+    let productStatus;
+      for (var child of product.children) {
+        if (child.attribs) {
+          let attributes = child.attribs;
+          if (attributes.class === 'product-name') {
+            productName = child.children[0].data.trim();
+          } else if (attributes.class === 'product-day') {
+            let children = child.children;
+            let marker = children[children.length - 2];
+            if (marker && marker.attribs) {
+               if (marker.attribs.class === 'status-container end-marker') {
+                let markerClass = marker.children[1].attribs.class;
+                if (markerClass.includes("available")) {
+                  productStatus = "Available";
+                }
+              }
+            }
+          }
+        }
+      }
+
+    
+      services[productName] = productStatus;
+      productName = "";
+      productStatus = "";
   }
 }
 
