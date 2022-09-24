@@ -33,41 +33,19 @@ app.get('/firebase', function (req, res) {
   if (enoughDaysHavePassed()) {
       rp(url)
     .then(function(html){
-       let products = [];
-       let product = {};
+        let products = [];
+        let product = {};
 
-       const $ = cheerio.load(html);
+        const $ = cheerio.load(html);
 
-       let startAndEndDates = getStartAndEndDates($);
+        let startAndEndDates = getStartAndEndDates($);
+        populateIncidents(html, products, currentStartDate);
 
-        let services = cheerio.load('.service-status', html);
-        for (let i = 0; i < services.length; i++) {
-          let service = services[i].children[0].data.trim();
-          if (service === 'Cloud Firestore') {
-            continue;
-          }
-
-          product.name = service;
-          product.incidents = [];
-          products.push(product);
-          product = {};
-        }
-
-      populateIncidents(html, products, currentStartDate);
-
-      let statuses = cheerio.load('.end-bubble', html);
-      for (let i = 0; i < products.length; i++) {
-        var productStatus = statuses[i];
-        if (productStatus && productStatus.attribs) {
-          products[i].status = productStatus.attribs.class;
-        }
-      }
-
-      lastDateScraped = new Date();
-      res.status(200).json({ message: products});
+        lastDateScraped = new Date();
+        res.status(200).json({ message: products});
     })
     .catch(function(err){
-      console.log(err);
+      res.status(404).json({ message: err});
     });
   } else {
     res.status(200).json({ message: products});
