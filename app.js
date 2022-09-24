@@ -36,7 +36,9 @@ app.get('/firebase', function (req, res) {
        let products = [];
        let product = {};
 
-       let currentStartDate = getStartDate(html);
+       const $ = cheerio.load(html);
+
+       let startAndEndDates = getStartAndEndDates($);
 
         let services = cheerio.load('.service-status', html);
         for (let i = 0; i < services.length; i++) {
@@ -92,8 +94,7 @@ function populateIncidents(html, products, currentStartDate) {
 }
 
 
-function getStartDate(html) {
-  const $ = cheerio.load(html);
+function getStartAndEndDates($) {
   
   let headers = $('.date-header');
   let headersLength = headers.length;
