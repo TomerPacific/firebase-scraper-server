@@ -6,7 +6,6 @@ const cheerio = require('cheerio');
 
 
 const daysPassedToScrapeAgain = 1;
-const amountOfColumns = 8;
 var port = process.env.PORT || 3000;
 var app = express();
 var lastDateScraped;
@@ -33,16 +32,17 @@ app.get('/firebase', function (req, res) {
   if (enoughDaysHavePassed()) {
       rp(url)
     .then(function(html){
-        let products = [];
-        let product = {};
+        let services = [];
 
         const $ = cheerio.load(html);
 
         let startAndEndDates = getStartAndEndDates($);
-        populateIncidents(html, products, currentStartDate);
+
+        populateServicesWithStatus($, services);
+        console.log(services);
 
         lastDateScraped = new Date();
-        res.status(200).json({ message: products});
+        res.status(200).json({ message: services});
     })
     .catch(function(err){
       res.status(404).json({ message: err});
@@ -51,26 +51,6 @@ app.get('/firebase', function (req, res) {
     res.status(200).json({ message: products});
   }
 });
-
-function populateIncidents(html, products, currentStartDate) {
-  
-  for(let i = 1; i < amountOfColumns; i++) {
-         let dayColumn = cheerio.load('.day.col'+i, html);
-          for(let j = 0; j < dayColumn.length; j++) {
-            let children = dayColumn[j].children;
-            let incidentReportIndex = findAnchorTag(children);
-            if (incidentReportIndex !== -1) {
-              let incidentReport = children[incidentReportIndex];
-              let incident = {};
-              incident.day = parseInt(currentStartDate.startDate) + i - 1;
-              incident.link = incidentReport.attribs.href;
-              products[incidentReportIndex].incidents.push(incident);
-              incident = {};
-            }
-          }
-      }
-}
-
 
 function getStartAndEndDates($) {
   
@@ -85,15 +65,13 @@ function getStartAndEndDates($) {
 
 }
 
-
-function findAnchorTag(elements) {
-  for(let i = 0; i < elements.length; i++) {
-    if (elements[i].name === 'a') {
-      return i;
-    }
+function populateServicesWithStatus($, services) {
+  let serviceNames = $('.product-name');
+  let amountOfServices = serviceNames.length;
+  for(let i = 0; i < amountOfServices; i++) {
+    let serviceName = serviceNames[i].children[0].data;
+    services[serviceName.trim()] = '';
   }
-
-  return -1;
 }
 
 function enoughDaysHavePassed() {
@@ -109,5 +87,5 @@ function enoughDaysHavePassed() {
 }
 
 app.listen(port, function () {
- console.log('Example app listening on port ' + port);
+ console.log('FirebaseScraperServer is listening on port ' + port);
 });
