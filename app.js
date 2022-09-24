@@ -3,6 +3,8 @@ var bodyParser = require('body-parser');
 var cors = require('cors');
 const rp = require('request-promise');
 const cheerio = require('cheerio');
+
+
 const daysPassedToScrapeAgain = 1;
 const amountOfColumns = 8;
 var port = process.env.PORT || 3000;
@@ -36,7 +38,7 @@ app.get('/firebase', function (req, res) {
 
        let currentStartDate = getStartDate(html);
 
-        let services = cheerio('.service-status', html);
+        let services = cheerio.load('.service-status', html);
         for (let i = 0; i < services.length; i++) {
           let service = services[i].children[0].data.trim();
           if (service === 'Cloud Firestore') {
@@ -51,7 +53,7 @@ app.get('/firebase', function (req, res) {
 
       populateIncidents(html, products, currentStartDate);
 
-      let statuses = cheerio('.end-bubble', html);
+      let statuses = cheerio.load('.end-bubble', html);
       for (let i = 0; i < products.length; i++) {
         var productStatus = statuses[i];
         if (productStatus && productStatus.attribs) {
@@ -73,7 +75,7 @@ app.get('/firebase', function (req, res) {
 function populateIncidents(html, products, currentStartDate) {
   
   for(let i = 1; i < amountOfColumns; i++) {
-         let dayColumn = cheerio('.day.col'+i, html);
+         let dayColumn = cheerio.load('.day.col'+i, html);
           for(let j = 0; j < dayColumn.length; j++) {
             let children = dayColumn[j].children;
             let incidentReportIndex = findAnchorTag(children);
@@ -91,10 +93,17 @@ function populateIncidents(html, products, currentStartDate) {
 
 
 function getStartDate(html) {
-  let monthSpan = cheerio('.month', html);
-  let month = monthSpan[0].children[0].data;
-  let startDate = monthSpan[0].next.data.trim();
-  return {'month': month, 'startDate': startDate};
+  const $ = cheerio.load(html);
+  
+  let headers = $('.date-header');
+  let headersLength = headers.length;
+  let firstHeader = headers[0];
+  let endHeader = headers[headersLength - 1];
+  let startDate = firstHeader.children[0].data;
+  let endDate = endHeader.children[0].data;
+
+  return {'startDate': startDate, 'endDate': endDate};
+
 }
 
 
