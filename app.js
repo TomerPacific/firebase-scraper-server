@@ -8,7 +8,7 @@ const daysPassedToScrapeAgain = 1;
 var port = process.env.PORT || 3000;
 var app = express();
 var lastDateScraped;
-var services = [];
+var services = {};
 
 const url = "https://status.firebase.google.com";
 
@@ -40,6 +40,7 @@ app.get('/firebase', function (req, res) {
         populateServicesWithStatus($);
 
         lastDateScraped = new Date();
+
         return res.status(200).json({ message: services });
     })
     .catch(function(err){
