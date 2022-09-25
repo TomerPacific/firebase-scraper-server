@@ -2,7 +2,7 @@ var express = require('express');
 var bodyParser = require('body-parser');
 var cors = require('cors');
 const rp = require('request-promise');
-const cheerio = require('cheerio');
+const cheerio = require('cheerio').default;
 
 const daysPassedToScrapeAgain = 1;
 var port = process.env.PORT || 3000;
