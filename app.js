@@ -80,9 +80,7 @@ function populateServicesWithStatus($) {
             if (marker && marker.attribs) {
                if (marker.attribs.class === 'status-container end-marker') {
                 let markerClass = marker.children[1].attribs.class;
-                if (markerClass.includes("available")) {
-                  productStatus = "Available";
-                }
+                productStatus = getProductStatus(markerClass);
               }
             }
           }
@@ -94,6 +92,22 @@ function populateServicesWithStatus($) {
       productName = "";
       productStatus = "";
   }
+}
+
+function getProductStatus(markerClass) {
+  let productStatus = "Unknown";
+  
+  if (markerClass.includes("available")) {
+    productStatus = "Available";
+  } else if (markerClass.includes("information")) {
+    productStatus = "Service Information"
+  } else if (markerClass.includes("disruption")) {
+    productStatus = "Service Disruption"
+  } else if (markerClass.includes("outage")) {
+    productStatus = "Service Outage"
+  }
+
+  return productStatus;
 }
 
 function enoughDaysHavePassed() {
