@@ -3,11 +3,12 @@ var bodyParser = require('body-parser');
 var cors = require('cors');
 const rp = require('request-promise');
 const cheerio = require('cheerio');
+
 const daysPassedToScrapeAgain = 1;
-const amountOfColumns = 8;
 var port = process.env.PORT || 3000;
 var app = express();
 var lastDateScraped;
+var services = {};
 
 const url = "https://status.firebase.google.com";
 
@@ -28,84 +29,85 @@ app.use(cors({
 
 app.get('/firebase', function (req, res) {
  
-  if (enoughDaysHavePassed()) {
+ if (enoughDaysHavePassed()) {
       rp(url)
     .then(function(html){
-       let products = [];
-       let product = {};
 
-       let currentStartDate = getStartDate(html);
+        const $ = cheerio.load(html);
 
-        let services = cheerio('.service-status', html);
-        for (let i = 0; i < services.length; i++) {
-          let service = services[i].children[0].data.trim();
-          if (service === 'Cloud Firestore') {
-            continue;
-          }
+        let startAndEndDates = getStartAndEndDates($);
 
-          product.name = service;
-          product.incidents = [];
-          products.push(product);
-          product = {};
-        }
+        populateServicesWithStatus($);
 
-      populateIncidents(html, products, currentStartDate);
+        lastDateScraped = new Date();
 
-      let statuses = cheerio('.end-bubble', html);
-      for (let i = 0; i < products.length; i++) {
-        var productStatus = statuses[i];
-        if (productStatus && productStatus.attribs) {
-          products[i].status = productStatus.attribs.class;
-        }
-      }
-
-      lastDateScraped = new Date();
-      res.status(200).json({ message: products});
+        return res.status(200).json({ message: services });
     })
     .catch(function(err){
-      console.log(err);
+      return res.status(404).json({message: err});
     });
-  } else {
-    res.status(200).json({ message: products});
-  }
+ } else {
+   res.status(200).json({ message: services});
+ }
 });
 
-function populateIncidents(html, products, currentStartDate) {
+function getStartAndEndDates($) {
   
-  for(let i = 1; i < amountOfColumns; i++) {
-         let dayColumn = cheerio('.day.col'+i, html);
-          for(let j = 0; j < dayColumn.length; j++) {
-            let children = dayColumn[j].children;
-            let incidentReportIndex = findAnchorTag(children);
-            if (incidentReportIndex !== -1) {
-              let incidentReport = children[incidentReportIndex];
-              let incident = {};
-              incident.day = parseInt(currentStartDate.startDate) + i - 1;
-              incident.link = incidentReport.attribs.href;
-              products[incidentReportIndex].incidents.push(incident);
-              incident = {};
+  let headers = $('.date-header');
+  let headersLength = headers.length;
+  let firstHeader = headers[0];
+  let endHeader = headers[headersLength - 1];
+  let startDate = firstHeader.children[0].data;
+  let endDate = endHeader.children[0].data;
+
+  return {'startDate': startDate, 'endDate': endDate};
+
+}
+
+function populateServicesWithStatus($) {
+  let products = $('.product-row');
+  for (var product of products) {
+    let productName;
+    let productStatus;
+      for (var child of product.children) {
+        if (child.attribs) {
+          let attributes = child.attribs;
+          if (attributes.class === 'product-name') {
+            productName = child.children[0].data.trim();
+          } else if (attributes.class === 'product-day') {
+            let children = child.children;
+            let marker = children[children.length - 2];
+            if (marker && marker.attribs) {
+               if (marker.attribs.class === 'status-container end-marker') {
+                let markerClass = marker.children[1].attribs.class;
+                productStatus = getProductStatus(markerClass);
+              }
             }
           }
+        }
       }
+
+    
+      services[productName] = productStatus;
+      productName = "";
+      productStatus = "";
+  }
 }
 
-
-function getStartDate(html) {
-  let monthSpan = cheerio('.month', html);
-  let month = monthSpan[0].children[0].data;
-  let startDate = monthSpan[0].next.data.trim();
-  return {'month': month, 'startDate': startDate};
-}
-
-
-function findAnchorTag(elements) {
-  for(let i = 0; i < elements.length; i++) {
-    if (elements[i].name === 'a') {
-      return i;
-    }
+function getProductStatus(markerClass) {
+  let productStatus = "Unknown";
+  
+  if (markerClass.includes("available")) {
+    productStatus = "Available";
+  } else if (markerClass.includes("information")) {
+    productStatus = "Service Information"
+  } else if (markerClass.includes("disruption")) {
+    productStatus = "Service Disruption"
+  } else if (markerClass.includes("outage")) {
+    productStatus = "Service Outage"
   }
 
-  return -1;
+  return productStatus;
 }
 
 function enoughDaysHavePassed() {
@@ -121,5 +123,5 @@ function enoughDaysHavePassed() {
 }
 
 app.listen(port, function () {
- console.log('Example app listening on port ' + port);
+ console.log('FirebaseScraperServer is listening on port ' + port);
 });
